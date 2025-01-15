@@ -2,13 +2,14 @@
 
 import { useRef, useState } from 'react'
 import Editor, { OnMount } from '@monaco-editor/react'
-import { PlayCircle, Lightbulb, CheckCircle, XCircle } from 'lucide-react'
+import { PlayCircle, Lightbulb, CheckCircle, XCircle, Terminal } from 'lucide-react'
 
 interface CodeEditorProps {
   initialCode: string;
   hint: string;
   height?: string;
   checkFn: (code: string) => boolean;
+  simulateFn?: (code: string) => string[];
 }
 
 type MonacoEditorType = {
@@ -20,10 +21,12 @@ export default function CodeEditor({
   initialCode, 
   hint, 
   height = "200px",
-  checkFn 
+  checkFn,
+  simulateFn 
 }: CodeEditorProps) {
   const [showHint, setShowHint] = useState(false)
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
+  const [output, setOutput] = useState<string[]>([])
   const editorRef = useRef<MonacoEditorType | null>(null)
 
   const handleEditorDidMount: OnMount = (editor) => {
@@ -38,10 +41,19 @@ export default function CodeEditor({
     // Check if code is unchanged
     if (userCode.trim() === initialCode.trim()) {
       setIsCorrect(false)
+      setOutput([])
       return
     }
 
-    setIsCorrect(checkFn(userCode))
+    const correct = checkFn(userCode)
+    setIsCorrect(correct)
+    
+    if (correct && simulateFn) {
+      // Use custom simulation if provided
+      setOutput(simulateFn(userCode))
+    } else {
+      setOutput([])
+    }
   }
 
   return (
@@ -75,6 +87,7 @@ export default function CodeEditor({
                 editorRef.current?.setValue(initialCode)
                 setIsCorrect(null)
                 setShowHint(false)
+                setOutput([])
               }}
               className="px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
             >
@@ -112,6 +125,20 @@ export default function CodeEditor({
           <div className="bg-blue-50 text-blue-700 p-3 rounded-lg flex items-start space-x-2">
             <Lightbulb className="h-5 w-5 flex-shrink-0 mt-0.5" />
             <span>{hint}</span>
+          </div>
+        )}
+
+        {isCorrect && output.length > 0 && (
+          <div className="mt-4">
+            <div className="flex items-center space-x-2 text-gray-700 mb-2">
+              <Terminal className="h-4 w-4" />
+              <span className="font-medium">Code Output:</span>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 font-mono text-sm text-gray-600">
+              {output.map((line, index) => (
+                <div key={index} className="py-0.5">{line}</div>
+              ))}
+            </div>
           </div>
         )}
       </div>
