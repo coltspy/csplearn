@@ -2,11 +2,13 @@
 
 import { useRef, useState } from 'react'
 import Editor, { OnMount } from '@monaco-editor/react'
-import { PlayCircle } from 'lucide-react'
+import { PlayCircle, Lightbulb, CheckCircle, XCircle } from 'lucide-react'
 
 interface CodeEditorProps {
   initialCode: string;
+  hint: string;
   height?: string;
+  checkFn: (code: string) => boolean;
 }
 
 type MonacoEditorType = {
@@ -14,43 +16,32 @@ type MonacoEditorType = {
   setValue: (value: string) => void;
 };
 
-export default function CodeEditor({ initialCode, height = "200px" }: CodeEditorProps) {
-  const [output, setOutput] = useState<string>("")
+export default function CodeEditor({ 
+  initialCode, 
+  hint, 
+  height = "200px",
+  checkFn 
+}: CodeEditorProps) {
+  const [showHint, setShowHint] = useState(false)
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
   const editorRef = useRef<MonacoEditorType | null>(null)
 
   const handleEditorDidMount: OnMount = (editor) => {
     editorRef.current = editor as MonacoEditorType
   }
 
-  const runCode = () => {
+  const checkSolution = () => {
     if (!editorRef.current) return
 
-    const code = editorRef.current.getValue()
+    const userCode = editorRef.current.getValue()
     
-    // Clear previous output
-    setOutput("")
-    
-    try {
-      // Create a safe console.log that captures output
-      const logs: string[] = []
-      const safeConsole = {
-        log: (...args: any[]) => {
-          logs.push(args.map(arg => String(arg)).join(' '))
-        }
-      }
-
-      // Create safe environment
-      const runSafe = new Function('console', code)
-      
-      // Run the code with our safe console
-      runSafe(safeConsole)
-      
-      // Display output
-      setOutput(logs.join('\n'))
-    } catch (err) {
-      const error = err as Error
-      setOutput(`Error: ${error.message}`)
+    // Check if code is unchanged
+    if (userCode.trim() === initialCode.trim()) {
+      setIsCorrect(false)
+      return
     }
+
+    setIsCorrect(checkFn(userCode))
   }
 
   return (
@@ -69,28 +60,58 @@ export default function CodeEditor({ initialCode, height = "200px" }: CodeEditor
           automaticLayout: true,
         }}
       />
-      <div className="bg-white p-4 flex justify-between items-start">
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={runCode}
-            className="inline-flex items-center px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
-          >
-            <PlayCircle className="h-4 w-4 mr-2" />
-            Run Code
-          </button>
-          <button 
-            onClick={() => editorRef.current?.setValue(initialCode)}
-            className="px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-          >
-            Reset
-          </button>
+      <div className="bg-white p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={checkSolution}
+              className="inline-flex items-center px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+            >
+              <PlayCircle className="h-4 w-4 mr-2" />
+              Check Solution
+            </button>
+            <button 
+              onClick={() => {
+                editorRef.current?.setValue(initialCode)
+                setIsCorrect(null)
+                setShowHint(false)
+              }}
+              className="px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+            >
+              Reset
+            </button>
+            <button
+              onClick={() => setShowHint(!showHint)}
+              className="text-gray-600 hover:text-gray-900 flex items-center space-x-1"
+            >
+              <Lightbulb className="h-4 w-4" />
+              <span>Need a hint?</span>
+            </button>
+          </div>
         </div>
-        {output && (
-          <div className="ml-4 flex-1">
-            <h4 className="text-sm font-medium text-gray-900 mb-1">Output:</h4>
-            <pre className="text-sm text-gray-600 bg-gray-50 p-2 rounded-lg whitespace-pre-wrap">
-              {output}
-            </pre>
+
+        {isCorrect !== null && (
+          <div className={`flex items-center space-x-2 p-3 rounded-lg ${
+            isCorrect ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+          }`}>
+            {isCorrect ? (
+              <>
+                <CheckCircle className="h-5 w-5" />
+                <span>Correct! Well done!</span>
+              </>
+            ) : (
+              <>
+                <XCircle className="h-5 w-5" />
+                <span>Not quite right. Try again!</span>
+              </>
+            )}
+          </div>
+        )}
+
+        {showHint && (
+          <div className="bg-blue-50 text-blue-700 p-3 rounded-lg flex items-start space-x-2">
+            <Lightbulb className="h-5 w-5 flex-shrink-0 mt-0.5" />
+            <span>{hint}</span>
           </div>
         )}
       </div>
